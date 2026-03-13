@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PMU Bot — Value Betting Dashboard</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --card: #1a1d27;
+    --border: #2a2d3a;
+    --text: #e1e4ed;
+    --muted: #8b8fa3;
+    --green: #22c55e;
+    --red: #ef4444;
+    --blue: #3b82f6;
+    --yellow: #eab308;
+    --cyan: #06b6d4;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+    background: var(--bg);
+    color: var(--text);
+    padding: 20px;
+    min-height: 100vh;
+  }
+  h1 { font-size: 1.4rem; margin-bottom: 20px; color: var(--cyan); }
+  h2 { font-size: 1rem; margin-bottom: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+  }
+  .card .label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .card .value { font-size: 1.5rem; font-weight: bold; margin-top: 4px; }
+  .card .value.green { color: var(--green); }
+  .card .value.blue { color: var(--blue); }
+  .card .value.yellow { color: var(--yellow); }
+  .card .value.cyan { color: var(--cyan); }
+
+  .section { margin-bottom: 28px; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
+  th { background: #15171f; color: var(--muted); text-transform: uppercase; font-size: 0.7rem; letter-spacing: 1px; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover { background: #1f2231; }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: bold;
+    text-transform: uppercase;
+  }
+  .badge.won { background: #16a34a22; color: var(--green); }
+  .badge.lost { background: #dc262622; color: var(--red); }
+  .badge.pending { background: #eab30822; color: var(--yellow); }
+  .badge.smart { background: #ef444422; color: var(--red); }
+
+  .controls {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: end;
+  }
+  .control-group { display: flex; flex-direction: column; gap: 4px; }
+  .control-group label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  input[type="number"], select {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 0.85rem;
+    width: 120px;
+  }
+  button {
+    background: var(--blue);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.8rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  button:hover { opacity: 0.85; }
+  button.small {
+    padding: 3px 8px;
+    font-size: 0.65rem;
+    background: var(--border);
+  }
+  button.small.green { background: #16a34a44; color: var(--green); }
+  button.small.red { background: #dc262644; color: var(--red); }
+
+  .status-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+    animation: pulse 2s infinite;
+  }
+  .status-dot.active { background: var(--green); }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  .empty { text-align: center; padding: 40px; color: var(--muted); }
+
+  #toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: var(--green);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    display: none;
+    z-index: 100;
+  }
+</style>
+</head>
+<body>
+
+<h1><span class="status-dot active"></span>PMU Bot — Value Betting Dashboard</h1>
+
+<!-- Status Cards -->
+<div class="grid" id="status-cards">
+  <div class="card">
+    <div class="label">Bankroll</div>
+    <div class="value green" id="bankroll">—</div>
+  </div>
+  <div class="card">
+    <div class="label">Signals Today</div>
+    <div class="value blue" id="signals-today">—</div>
+  </div>
+  <div class="card">
+    <div class="label">Events Tracked</div>
+    <div class="value cyan" id="events-today">—</div>
+  </div>
+  <div class="card">
+    <div class="label">API Quota Left</div>
+    <div class="value yellow" id="quota-remaining">—</div>
+  </div>
+  <div class="card">
+    <div class="label">Last Update</div>
+    <div class="value" id="last-update" style="font-size:1rem;">—</div>
+  </div>
+</div>
+
+<!-- Controls -->
+<div class="section">
+  <h2>Controls</h2>
+  <div class="card">
+    <div class="controls">
+      <div class="control-group">
+        <label>Min Edge %</label>
+        <input type="number" id="cfg-min-edge" step="0.01" min="0">
+      </div>
+      <div class="control-group">
+        <label>Kelly Fraction</label>
+        <input type="number" id="cfg-kelly" step="0.05" min="0" max="1">
+      </div>
+      <div class="control-group">
+        <label>Max Bet %</label>
+        <input type="number" id="cfg-max-bet" step="0.01" min="0" max="1">
+      </div>
+      <div class="control-group">
+        <label>Poll Interval (s)</label>
+        <input type="number" id="cfg-poll" step="30" min="60">
+      </div>
+      <div class="control-group">
+        <label>Bankroll (EUR)</label>
+        <input type="number" id="cfg-bankroll" step="10" min="0">
+      </div>
+      <div class="control-group" style="justify-content:end;">
+        <button onclick="saveConfig()">Save Settings</button>
+      </div>
+      <div class="control-group" style="justify-content:end;">
+        <button onclick="updateBankroll()" style="background:var(--green);">Update Bankroll</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Bet Signals Table -->
+<div class="section">
+  <h2>Bet Signals</h2>
+  <table id="signals-table">
+    <thead>
+      <tr>
+        <th>Time</th>
+        <th>Horse</th>
+        <th>Event</th>
+        <th>PMU Odds</th>
+        <th>Fair Prob</th>
+        <th>Edge</th>
+        <th>Stake (EUR)</th>
+        <th>Smart Money</th>
+        <th>Result</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="signals-body">
+      <tr><td colspan="10" class="empty">Loading...</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div id="toast"></div>
+
+<script>
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', 2500);
+}
+
+async function fetchStatus() {
+  try {
+    const r = await fetch('/api/status');
+    const d = await r.json();
+    document.getElementById('bankroll').textContent = d.bankroll.toFixed(2) + ' EUR';
+    document.getElementById('signals-today').textContent = d.signals_today;
+    document.getElementById('events-today').textContent = d.events_today;
+    document.getElementById('quota-remaining').textContent = d.quota.requests_remaining || 'N/A';
+    const ts = new Date(d.timestamp);
+    document.getElementById('last-update').textContent = ts.toLocaleTimeString();
+  } catch(e) {
+    console.error('Status fetch failed:', e);
+  }
+}
+
+async function fetchSignals() {
+  try {
+    const r = await fetch('/api/signals');
+    const signals = await r.json();
+    const tbody = document.getElementById('signals-body');
+
+    if (!signals.length) {
+      tbody.innerHTML = '<tr><td colspan="10" class="empty">No signals yet. Waiting for value bets...</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = signals.map(s => {
+      const time = s.created_at ? s.created_at.substring(11, 19) : '—';
+      const eventShort = s.event_id ? s.event_id.substring(0, 12) + '...' : '—';
+      const smartBadge = s.smart_money_signal ? '<span class="badge smart">YES</span>' : '—';
+
+      let resultBadge;
+      if (s.result === 'won') resultBadge = '<span class="badge won">WON</span>';
+      else if (s.result === 'lost') resultBadge = '<span class="badge lost">LOST</span>';
+      else resultBadge = '<span class="badge pending">PENDING</span>';
+
+      let actions = '';
+      if (s.result === 'pending') {
+        actions = `
+          <button class="small green" onclick="markResult(${s.id}, 'won')">Won</button>
+          <button class="small red" onclick="markResult(${s.id}, 'lost')">Lost</button>
+        `;
+      }
+
+      return `<tr>
+        <td>${time}</td>
+        <td><strong>${s.horse_name || '—'}</strong></td>
+        <td title="${s.event_id}">${eventShort}</td>
+        <td>${s.pmu_odds ? s.pmu_odds.toFixed(2) : '—'}</td>
+        <td>${s.fair_prob ? s.fair_prob.toFixed(3) : '—'}</td>
+        <td style="color:var(--green);">${s.edge ? (s.edge * 100).toFixed(1) + '%' : '—'}</td>
+        <td>${s.bet_amount ? s.bet_amount.toFixed(2) : '—'}</td>
+        <td>${smartBadge}</td>
+        <td>${resultBadge}</td>
+        <td>${actions}</td>
+      </tr>`;
+    }).join('');
+  } catch(e) {
+    console.error('Signals fetch failed:', e);
+  }
+}
+
+async function fetchConfig() {
+  try {
+    const r = await fetch('/api/config');
+    const d = await r.json();
+    document.getElementById('cfg-min-edge').value = (d.min_edge * 100).toFixed(1);
+    document.getElementById('cfg-kelly').value = d.kelly_fraction;
+    document.getElementById('cfg-max-bet').value = (d.max_bet_fraction * 100).toFixed(1);
+    document.getElementById('cfg-poll').value = d.poll_interval;
+    document.getElementById('cfg-bankroll').value = d.bankroll;
+  } catch(e) {
+    console.error('Config fetch failed:', e);
+  }
+}
+
+async function saveConfig() {
+  const data = {
+    min_edge: parseFloat(document.getElementById('cfg-min-edge').value) / 100,
+    kelly_fraction: parseFloat(document.getElementById('cfg-kelly').value),
+    max_bet_fraction: parseFloat(document.getElementById('cfg-max-bet').value) / 100,
+    poll_interval: parseInt(document.getElementById('cfg-poll').value),
+  };
+  await fetch('/api/config', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+  toast('Settings saved');
+}
+
+async function updateBankroll() {
+  const balance = parseFloat(document.getElementById('cfg-bankroll').value);
+  if (isNaN(balance) || balance < 0) return;
+  await fetch('/api/bankroll', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ balance }) });
+  toast('Bankroll updated');
+  fetchStatus();
+}
+
+async function markResult(id, result) {
+  const profit = result === 'won' ? prompt('Enter profit (EUR):', '0') : prompt('Enter loss as negative (EUR):', '0');
+  if (profit === null) return;
+  await fetch(`/api/signals/${id}/result`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ result, profit: parseFloat(profit) || 0 }),
+  });
+  toast(`Marked as ${result}`);
+  fetchSignals();
+  fetchStatus();
+}
+
+// Initial load
+fetchStatus();
+fetchSignals();
+fetchConfig();
+
+// Auto-refresh every 15s
+setInterval(() => { fetchStatus(); fetchSignals(); }, 15000);
+</script>
+</body>
+</html>

@@ -11,12 +11,7 @@ BANKROLL = 1000.0
 MIN_EDGE = 0.08
 MAX_BET_FRACTION = 0.05
 KELLY_FRACTION = 0.5
-PAPER_TRADING = True
 POLL_INTERVAL_SECONDS = 300
-
-# Telegram settings (optional)
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 # Database
 DB_PATH = os.getenv("DB_PATH", "pmu_bot.db")
@@ -24,3 +19,7 @@ DB_PATH = os.getenv("DB_PATH", "pmu_bot.db")
 # Odds movement detection
 MOVEMENT_WINDOW_MINUTES = 30
 MOVEMENT_THRESHOLD = 0.15  # 15% drop = smart money signal
+
+# Web interface
+WEB_HOST = os.getenv("WEB_HOST", "0.0.0.0")
+WEB_PORT = int(os.getenv("WEB_PORT", "5000"))

@@ -156,3 +156,33 @@ def get_events_tracked_today():
             (today,),
         ).fetchone()
         return row["cnt"] if row else 0
+
+
+def get_all_signals(limit=100):
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT * FROM bet_signals ORDER BY created_at DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_bankroll_history(limit=50):
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT balance, logged_at FROM bankroll_log ORDER BY logged_at DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def update_bankroll(new_balance):
+    log_bankroll(new_balance)
+
+
+def update_signal_result(signal_id, result, profit):
+    with get_db() as conn:
+        conn.execute(
+            "UPDATE bet_signals SET result = ?, profit = ? WHERE id = ?",
+            (result, profit, signal_id),
+        )
